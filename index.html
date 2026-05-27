@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Free privacy-first QR code generator. Create custom QR codes for URLs, Wi-Fi, vCard, text and more. 100% client-side — no data collected.">
+<meta name="theme-color" content="#0f172a">
+<title>TBH_QR - QR Code Generator</title>
+
+<!-- QR library (client-side, no tracking) -->
+<script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js"></script>
+<!-- PDF export -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-2: #273549;
+    --border: #334155;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent-2: #0ea5e9;
+    --success: #22c55e;
+    --danger: #ef4444;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  /* Header */
+  header {
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .nav {
+    max-width: 1400px; margin: 0 auto;
+    padding: 14px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo {
+    font-size: 1.3rem; font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), #a78bfa);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    cursor: pointer; user-select: none;
+  }
+  .nav-links { display: flex; gap: 20px; }
+  .nav-links a {
+    color: var(--muted); text-decoration: none; font-size: 0.95rem;
+    transition: color 0.2s; cursor: pointer;
+  }
+  .nav-links a:hover, .nav-links a.active { color: var(--accent); }
+
+  /* Layout */
+  main { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* Generator grid */
+  .generator-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 1100px) {
+    .generator-grid { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .panel h2 {
+    font-size: 1.05rem; margin-bottom: 16px;
+    color: var(--accent); font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+  }
+  .panel h3 {
+    font-size: 0.9rem; margin: 18px 0 10px;
+    color: var(--muted); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+
+  /* Forms */
+  label {
+    display: block; font-size: 0.85rem;
+    color: var(--muted); margin-bottom: 6px; margin-top: 12px;
+  }
+  input[type="text"], input[type="url"], input[type="email"], input[type="tel"],
+  input[type="number"], input[type="password"], select, textarea {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 9px 12px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--accent);
+  }
+  textarea { resize: vertical; min-height: 80px; }
+  input[type="color"] {
+    width: 100%; height: 38px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px; cursor: pointer; padding: 3px;
+  }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .range-group { display: flex; align-items: center; gap: 10px; }
+  .range-group input[type="range"] { flex: 1; }
+  .range-val {
+    min-width: 50px; text-align: right;
+    font-size: 0.85rem; color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .checkbox-group { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+  .checkbox-group input { width: auto; accent-color: var(--accent); }
+  .checkbox-group label { margin: 0; color: var(--text); }
+
+  /* Tabs */
+  .tabs {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    background: var(--panel-2);
+    padding: 4px; border-radius: 6px;
+    margin-bottom: 16px;
+  }
+  .tab {
+    flex: 1; min-width: 70px;
+    padding: 8px 10px;
+    background: transparent; border: none;
+    color: var(--muted); font-size: 0.82rem;
+    border-radius: 4px; cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    background: var(--accent); color: #0f172a;
+    font-weight: 600;
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Preview */
+  .preview-panel { position: sticky; top: 80px; align-self: start; }
+  .preview-box {
+    background: white; border-radius: 8px;
+    padding: 24px; display: flex; flex-direction: column;
+    align-items: center; gap: 12px;
+    min-height: 380px; justify-content: center;
+  }
+  #qr-canvas { display: flex; justify-content: center; }
+  #qr-canvas canvas, #qr-canvas svg { max-width: 100%; height: auto; }
+  .caption {
+    color: #0f172a; font-weight: 600;
+    text-align: center; word-break: break-word;
+    max-width: 100%;
+  }
+
+  /* Buttons */
+  .btn {
+    background: var(--accent); color: #0f172a;
+    border: none; padding: 10px 16px;
+    border-radius: 6px; font-weight: 600;
+    cursor: pointer; font-size: 0.9rem;
+    font-family: inherit;
+    transition: all 0.2s;
+    width: 100%; margin-top: 8px;
+  }
+  .btn:hover { background: var(--accent-2); transform: translateY(-1px); }
+  .btn-secondary {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { background: var(--border); }
+  .export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .export-grid .btn { margin-top: 0; }
+
+  /* Hero */
+  .hero {
+    text-align: center; padding: 40px 20px 30px;
+    margin-bottom: 20px;
+  }
+  .hero h1 {
+    font-size: 2.2rem; margin-bottom: 12px;
+    background: linear-gradient(135deg, var(--accent), #a78bfa);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .hero p { color: var(--muted); max-width: 600px; margin: 0 auto; }
+  .privacy-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--success);
+    padding: 6px 12px; border-radius: 20px;
+    font-size: 0.82rem; margin-top: 14px;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+
+  /* Content pages */
+  .content-page {
+    max-width: 760px; margin: 0 auto;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 36px;
+  }
+  .content-page h1 {
+    font-size: 1.8rem; margin-bottom: 20px; color: var(--accent);
+  }
+  .content-page h2 {
+    font-size: 1.2rem; margin: 24px 0 12px; color: var(--text);
+  }
+  .content-page p, .content-page li {
+    color: var(--muted); margin-bottom: 12px;
+  }
+  .content-page ul, .content-page ol {
+    padding-left: 24px; margin-bottom: 12px;
+  }
+  .content-page strong { color: var(--text); }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 20px; text-align: center;
+    color: var(--muted); font-size: 0.85rem;
+    margin-top: 40px;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  /* Logo upload */
+  .file-upload {
+    display: block; width: 100%;
+    padding: 10px; background: var(--panel-2);
+    border: 1px dashed var(--border); border-radius: 6px;
+    color: var(--muted); text-align: center;
+    cursor: pointer; font-size: 0.85rem;
+    transition: border-color 0.2s;
+  }
+  .file-upload:hover { border-color: var(--accent); }
+  .file-upload input { display: none; }
+  .logo-preview {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 8px; font-size: 0.85rem;
+  }
+  .logo-preview img {
+    width: 32px; height: 32px; border-radius: 4px;
+    object-fit: contain; background: white;
+  }
+  .remove-logo {
+    background: var(--danger); color: white;
+    border: none; padding: 4px 10px; border-radius: 4px;
+    cursor: pointer; font-size: 0.75rem;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 20px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--success); color: white;
+    padding: 12px 20px; border-radius: 8px;
+    font-size: 0.9rem; z-index: 1000;
+    opacity: 0; transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+</style>
+
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
+</script>
+
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <div class="logo" onclick="showPage('generator')">⚡ TBHQR</div>
+    <nav class="nav-links">
+      <a onclick="showPage('generator')" id="nav-generator" class="active">Generator</a>
+      <a onclick="showPage('about')" id="nav-about">About</a>
+      <a onclick="showPage('privacy')" id="nav-privacy">Privacy</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- GENERATOR PAGE -->
+  <section id="page-generator" class="page active">
+    <div class="hero">
+      <h1>Privacy-First QR Code Generator</h1>
+      <p>Create beautiful, customizable QR codes for URLs, Wi-Fi, vCards, and more. Everything runs in your browser — your data never leaves your device.</p>
+      <div class="privacy-badge">🔒 100% Client-Side · No Tracking · No Storage</div>
+    </div>
+
+    <div class="generator-grid">
+      <!-- LEFT: Data Input -->
+      <div class="panel">
+        <h2>1. Content</h2>
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-type="url">URL</button>
+          <button class="tab" data-type="text">Text</button>
+          <button class="tab" data-type="wifi">Wi-Fi</button>
+          <button class="tab" data-type="vcard">vCard</button>
+          <button class="tab" data-type="email">Email</button>
+          <button class="tab" data-type="sms">SMS</button>
+          <button class="tab" data-type="geo">Geo</button>
+        </div>
+
+        <div class="tab-content active" data-content="url">
+          <label>Website URL</label>
+          <input type="url" id="in-url" value="https://example.com" placeholder="https://example.com">
+        </div>
+
+        <div class="tab-content" data-content="text">
+          <label>Text content</label>
+          <textarea id="in-text" placeholder="Enter any text...">Hello, World!</textarea>
+        </div>
+
+        <div class="tab-content" data-content="wifi">
+          <label>Network Name (SSID)</label>
+          <input type="text" id="in-wifi-ssid" placeholder="MyNetwork">
+          <label>Password</label>
+          <input type="password" id="in-wifi-pass" placeholder="Password">
+          <label>Encryption</label>
+          <select id="in-wifi-enc">
+            <option value="WPA">WPA / WPA2 / WPA3</option>
+            <option value="WEP">WEP</option>
+            <option value="nopass">None</option>
+          </select>
+          <div class="checkbox-group">
+            <input type="checkbox" id="in-wifi-hidden">
+            <label for="in-wifi-hidden">Hidden network</label>
+          </div>
+        </div>
+
+        <div class="tab-content" data-content="vcard">
+          <div class="row-2">
+            <div><label>First Name</label><input type="text" id="in-vc-first"></div>
+            <div><label>Last Name</label><input type="text" id="in-vc-last"></div>
+          </div>
+          <label>Organization</label>
+          <input type="text" id="in-vc-org">
+          <label>Phone</label>
+          <input type="tel" id="in-vc-phone">
+          <label>Email</label>
+          <input type="email" id="in-vc-email">
+          <label>Website</label>
+          <input type="url" id="in-vc-url">
+          <label>Address</label>
+          <input type="text" id="in-vc-addr">
+        </div>
+
+        <div class="tab-content" data-content="email">
+          <label>To</label>
+          <input type="email" id="in-em-to" placeholder="hello@example.com">
+          <label>Subject</label>
+          <input type="text" id="in-em-sub">
+          <label>Body</label>
+          <textarea id="in-em-body"></textarea>
+        </div>
+
+        <div class="tab-content" data-content="sms">
+          <label>Phone Number</label>
+          <input type="tel" id="in-sms-num" placeholder="+1234567890">
+          <label>Message</label>
+          <textarea id="in-sms-msg"></textarea>
+        </div>
+
+        <div class="tab-content" data-content="geo">
+          <label>Latitude</label>
+          <input type="number" id="in-geo-lat" step="any" placeholder="37.7749">
+          <label>Longitude</label>
+          <input type="number" id="in-geo-lng" step="any" placeholder="-122.4194">
+        </div>
+      </div>
+
+      <!-- CENTER: Preview -->
+      <div class="panel preview-panel">
+        <h2>Live Preview</h2>
+        <div class="preview-box" id="preview-box">
+          <div class="caption" id="caption-top"></div>
+          <div id="qr-canvas"></div>
+          <div class="caption" id="caption-bottom"></div>
+        </div>
+
+        <h3>Export</h3>
+        <div class="export-grid">
+          <button class="btn" onclick="downloadQR('png')">PNG</button>
+          <button class="btn" onclick="downloadQR('svg')">SVG</button>
+          <button class="btn" onclick="downloadQR('jpeg')">JPG</button>
+          <button class="btn" onclick="downloadQR('pdf')">PDF</button>
+        </div>
+      </div>
+
+      <!-- RIGHT: Customization -->
+      <div class="panel">
+        <h2>2. Customize</h2>
+
+        <h3>Colors</h3>
+        <div class="row-2">
+          <div>
+            <label>Foreground</label>
+            <input type="color" id="cust-fg" value="#000000">
+          </div>
+          <div>
+            <label>Background</label>
+            <input type="color" id="cust-bg" value="#ffffff">
+          </div>
+        </div>
+
+        <h3>Style</h3>
+        <label>Dot Style</label>
+        <select id="cust-dot-style">
+          <option value="square">Square</option>
+          <option value="rounded">Rounded</option>
+          <option value="dots">Dots</option>
+          <option value="classy">Classy</option>
+          <option value="classy-rounded">Classy Rounded</option>
+          <option value="extra-rounded">Extra Rounded</option>
+        </select>
+
+        <label>Corner Square Style</label>
+        <select id="cust-corner-sq">
+          <option value="square">Square</option>
+          <option value="dot">Dot</option>
+          <option value="extra-rounded">Extra Rounded</option>
+        </select>
+
+        <label>Corner Dot Style</label>
+        <select id="cust-corner-dot">
+          <option value="square">Square</option>
+          <option value="dot">Dot</option>
+        </select>
+
+        <label>Size (px)</label>
+        <div class="range-group">
+          <input type="range" id="cust-size" min="200" max="800" step="20" value="320">
+          <span class="range-val" id="cust-size-val">320</span>
+        </div>
+
+        <label>Error Correction</label>
+        <select id="cust-ec">
+          <option value="L">Low (~7%)</option>
+          <option value="M">Medium (~15%)</option>
+          <option value="Q" selected>Quartile (~25%)</option>
+          <option value="H">High (~30%)</option>
+        </select>
+
+        <h3>Logo (Optional)</h3>
+        <label class="file-upload">
+          <input type="file" id="cust-logo" accept="image/*">
+          📷 Click to upload logo
+        </label>
+        <div class="logo-preview" id="logo-preview" style="display:none;">
+          <img id="logo-img" alt="logo">
+          <span id="logo-name"></span>
+          <button class="remove-logo" onclick="removeLogo()">Remove</button>
+        </div>
+        <label>Logo Size</label>
+        <div class="range-group">
+          <input type="range" id="cust-logo-size" min="0.1" max="0.4" step="0.05" value="0.25">
+          <span class="range-val" id="cust-logo-size-val">25%</span>
+        </div>
+
+        <h3>Caption Text</h3>
+        <label>Top Caption</label>
+        <input type="text" id="cust-top" placeholder="e.g. SCAN ME">
+        <label>Bottom Caption</label>
+        <input type="text" id="cust-bottom" placeholder="e.g. Free Wi-Fi">
+        <label>Caption Font Size</label>
+        <div class="range-group">
+          <input type="range" id="cust-cap-size" min="10" max="32" step="1" value="16">
+          <span class="range-val" id="cust-cap-size-val">16px</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ABOUT PAGE -->
+  <section id="page-about" class="page">
+    <div class="content-page">
+      <h1>About TBHQR</h1>
+      <p>TBHQR is a free, open, privacy-first QR code generator built for people who care about their data.</p>
+
+      <h2>Our Mission</h2>
+      <p>Most online QR generators silently log every URL, Wi-Fi password, and contact card you type into them. We think that's wrong. TBHQR proves you can have a beautiful, fully-featured QR tool that <strong>never sees your data</strong>.</p>
+
+      <h2>How It Works</h2>
+      <p>Every QR code is generated entirely inside your browser using JavaScript. When you type your Wi-Fi password or contact details, that information stays on your device. Nothing is ever sent to a server. You can verify this by:</p>
+      <ol>
+        <li>Opening your browser's Network tab (F12) and confirming no requests fire while you generate codes.</li>
+        <li>Disconnecting from the internet after the page loads — TBHQR will continue to work perfectly.</li>
+      </ol>
+
+      <h2>Features</h2>
+      <ul>
+        <li>7 data types: URL, Text, Wi-Fi, vCard, Email, SMS, Geo-location</li>
+        <li>Full visual customization: colors, shapes, corners, dots</li>
+        <li>Optional logo embedding (processed locally)</li>
+        <li>Custom captions above and below the code</li>
+        <li>Export as PNG, SVG, JPG, or PDF</li>
+        <li>Works offline after first load</li>
+      </ul>
+
+      <h2>Built With</h2>
+      <p>TBHQR is a static web application that runs on any free hosting platform (Cloudflare Pages, Netlify, GitHub Pages, Vercel). There is no backend — by design.</p>
+    </div>
+  </section>
+
+  <!-- PRIVACY PAGE -->
+  <section id="page-privacy" class="page">
+    <div class="content-page">
+      <h1>Privacy Policy</h1>
+      <p><strong>Last updated: 2025</strong></p>
+
+      <h2>The Short Version</h2>
+      <p>We do not collect, store, transmit, sell, or share any data about you or the QR codes you create. Full stop.</p>
+
+      <h2>What We Don't Do</h2>
+      <ul>
+        <li>❌ We do not run analytics that capture your inputs</li>
+        <li>❌ We do not use third-party trackers, pixels, or fingerprinting</li>
+        <li>❌ We do not set advertising cookies</li>
+        <li>❌ We do not have a database — there's nowhere to store your data even if we wanted to</li>
+        <li>❌ We do not require accounts, sign-ups, or email addresses</li>
+        <li>❌ We do not send any QR content to a server</li>
+      </ul>
+
+      <h2>How Your Data Is Handled</h2>
+      <p>All QR code generation happens <strong>locally in your browser</strong>. The URLs, Wi-Fi passwords, contact details, and any other content you enter are processed by JavaScript running on your own device and discarded the moment you close the tab.</p>
+
+      <h2>Logo Uploads</h2>
+      <p>If you upload a logo image, it is read into your browser's memory using the standard FileReader API. The image is never uploaded to any server. It exists only in the tab you have open.</p>
+
+      <h2>Hosting & Third Parties</h2>
+      <p>This site is served as static files from a content delivery network. Your hosting provider may log standard request metadata (IP address, user agent) for abuse prevention, as is standard for any website. We do not access or process those logs.</p>
+      <p>We load two open-source JavaScript libraries from a public CDN (jsDelivr) to render QR codes and PDFs. These are static asset requests and do not transmit any QR content.</p>
+
+      <h2>Cookies & Local Storage</h2>
+      <p>TBHQR does not set any cookies and does not write to localStorage or sessionStorage.</p>
+
+      <h2>Your Rights</h2>
+      <p>Since we don't collect any data, there is nothing to access, correct, or delete. You are already in full control.</p>
+
+      <h2>Changes</h2>
+      <p>If this policy ever changes, the updated date above will reflect it. Our commitment to zero data collection will not change.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>TBHQR · Built with privacy in mind · <a onclick="showPage('privacy')">Privacy</a> · <a onclick="showPage('about')">About</a></p>
+</footer>
+
+<div class="toast" id="toast">Downloaded!</div>
+
+<script>
+  // ============ PAGE ROUTING ============
+  function showPage(name) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+    const link = document.getElementById('nav-' + name);
+    if (link) link.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ============ TAB SWITCHING ============
+  const tabs = document.querySelectorAll('.tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.querySelector(`[data-content="${tab.dataset.type}"]`).classList.add('active');
+      updateQR();
+    });
+  });
+
+  // ============ INPUT ENCODERS ============
+  function escapeWifi(s) { return (s || '').replace(/([\\;,":])/g, '\\$1'); }
+  function getActiveType() {
+    return document.querySelector('.tab.active').dataset.type;
+  }
+  function buildPayload() {
+    const type = getActiveType();
+    switch (type) {
+      case 'url':
+        return document.getElementById('in-url').value || ' ';
+      case 'text':
+        return document.getElementById('in-text').value || ' ';
+      case 'wifi': {
+        const ssid = escapeWifi(document.getElementById('in-wifi-ssid').value);
+        const pass = escapeWifi(document.getElementById('in-wifi-pass').value);
+        const enc = document.getElementById('in-wifi-enc').value;
+        const hidden = document.getElementById('in-wifi-hidden').checked ? 'true' : 'false';
+        return `WIFI:T:${enc};S:${ssid};P:${pass};H:${hidden};;`;
+      }
+      case 'vcard': {
+        const first = document.getElementById('in-vc-first').value;
+        const last = document.getElementById('in-vc-last').value;
+        const org = document.getElementById('in-vc-org').value;
+        const phone = document.getElementById('in-vc-phone').value;
+        const email = document.getElementById('in-vc-email').value;
+        const url = document.getElementById('in-vc-url').value;
+        const addr = document.getElementById('in-vc-addr').value;
+        return [
+          'BEGIN:VCARD', 'VERSION:3.0',
+          `N:${last};${first}`,
+          `FN:${first} ${last}`.trim(),
+          org ? `ORG:${org}` : '',
+          phone ? `TEL:${phone}` : '',
+          email ? `EMAIL:${email}` : '',
+          url ? `URL:${url}` : '',
+          addr ? `ADR:;;${addr};;;;` : '',
+          'END:VCARD'
+        ].filter(Boolean).join('\n');
+      }
+      case 'email': {
+        const to = document.getElementById('in-em-to').value;
+        const sub = encodeURIComponent(document.getElementById('in-em-sub').value);
+        const body = encodeURIComponent(document.getElementById('in-em-body').value);
+        return `mailto:${to}?subject=${sub}&body=${body}`;
+      }
+      case 'sms': {
+        const num = document.getElementById('in-sms-num').value;
+        const msg = encodeURIComponent(document.getElementById('in-sms-msg').value);
+        return `SMSTO:${num}:${msg}`;
+      }
+      case 'geo': {
+        const lat = document.getElementById('in-geo-lat').value || '0';
+        const lng = document.getElementById('in-geo-lng').value || '0';
+        return `geo:${lat},${lng}`;
+      }
+    }
+    return ' ';
+  }
+
+  // ============ QR INSTANCE ============
+  let qrCode = null;
+  let logoDataURL = null;
+
+  function buildOptions() {
+    const size = parseInt(document.getElementById('cust-size').value);
+    const fg = document.getElementById('cust-fg').value;
+    const bg = document.getElementById('cust-bg').value;
+    const dotStyle = document.getElementById('cust-dot-style').value;
+    const cornerSq = document.getElementById('cust-corner-sq').value;
+    const cornerDot = document.getElementById('cust-corner-dot').value;
+    const ec = document.getElementById('cust-ec').value;
+    const logoSize = parseFloat(document.getElementById('cust-logo-size').value);
+
+    const opts = {
+      width: size,
+      height: size,
+      type: 'canvas',
+      data: buildPayload(),
+      margin: 8,
+      qrOptions: {
+        errorCorrectionLevel: ec
+      },
+      dotsOptions: { color: fg, type: dotStyle },
+      backgroundOptions: { color: bg },
+      cornersSquareOptions: { color: fg, type: cornerSq },
+      cornersDotOptions: { color: fg, type: cornerDot },
+      imageOptions: {
+        crossOrigin: 'anonymous',
+        margin: 4,
+        imageSize: logoSize,
+        hideBackgroundDots: true
+      }
+    };
+    if (logoDataURL) opts.image = logoDataURL;
+    return opts;
+  }
+
+  function updateQR() {
+    const opts = buildOptions();
+    const container = document.getElementById('qr-canvas');
+    if (!qrCode) {
+      qrCode = new QRCodeStyling(opts);
+      container.innerHTML = '';
+      qrCode.append(container);
+    } else {
+      qrCode.update(opts);
+    }
+    updateCaptions();
+  }
+
+  function updateCaptions() {
+    const top = document.getElementById('cust-top').value;
+    const bottom = document.getElementById('cust-bottom').value;
+    const fontSize = document.getElementById('cust-cap-size').value;
+    const fg = document.getElementById('cust-fg').value;
+    const bg = document.getElementById('cust-bg').value;
+
+    const tEl = document.getElementById('caption-top');
+    const bEl = document.getElementById('caption-bottom');
+    tEl.textContent = top;
+    bEl.textContent = bottom;
+    tEl.style.fontSize = bEl.style.fontSize = fontSize + 'px';
+    tEl.style.color = bEl.style.color = fg;
+    document.getElementById('preview-box').style.background = bg;
+  }
+
+  // ============ LOGO UPLOAD ============
+  document.getElementById('cust-logo').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      logoDataURL = ev.target.result;
+      document.getElementById('logo-img').src = logoDataURL;
+      document.getElementById('logo-name').textContent = file.name;
+      document.getElementById('logo-preview').style.display = 'flex';
+      updateQR();
+    };
+    reader.readAsDataURL(file);
+  });
+  function removeLogo() {
+    logoDataURL = null;
+    document.getElementById('cust-logo').value = '';
+    document.getElementById('logo-preview').style.display = 'none';
+    updateQR();
+  }
+
+  // ============ RANGE DISPLAY ============
+  function bindRange(id, suffix, transform) {
+    const el = document.getElementById(id);
+    const val = document.getElementById(id + '-val');
+    const upd = () => {
+      const v = transform ? transform(el.value) : el.value;
+      val.textContent = v + (suffix || '');
+    };
+    el.addEventListener('input', upd);
+    upd();
+  }
+  bindRange('cust-size', '');
+  bindRange('cust-logo-size', '%', v => Math.round(v * 100));
+  bindRange('cust-cap-size', 'px');
+
+  // ============ LIVE BINDING ============
+  const liveInputs = [
+    'in-url','in-text','in-wifi-ssid','in-wifi-pass','in-wifi-enc','in-wifi-hidden',
+    'in-vc-first','in-vc-last','in-vc-org','in-vc-phone','in-vc-email','in-vc-url','in-vc-addr',
+    'in-em-to','in-em-sub','in-em-body','in-sms-num','in-sms-msg','in-geo-lat','in-geo-lng',
+    'cust-fg','cust-bg','cust-dot-style','cust-corner-sq','cust-corner-dot',
+    'cust-size','cust-ec','cust-logo-size','cust-top','cust-bottom','cust-cap-size'
+  ];
+  liveInputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', updateQR);
+      el.addEventListener('change', updateQR);
+    }
+  });
+
+  // ============ EXPORT ============
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+  }
+
+  async function getQRBlob(ext) {
+    // qr-code-styling provides getRawData
+    const type = ext === 'svg' ? 'svg' : (ext === 'jpeg' ? 'jpeg' : 'png');
+    return await qrCode.getRawData(type);
+  }
+
+  // Build a composite canvas with captions
+  async function composeWithCaptions(format) {
+    const size = parseInt(document.getElementById('cust-size').value);
+    const top = document.getElementById('cust-top').value;
+    const bottom = document.getElementById('cust-bottom').value;
+    const fontSize = parseInt(document.getElementById('cust-cap-size').value);
+    const fg = document.getElementById('cust-fg').value;
+    const bg = document.getElementById('cust-bg').value;
+    const padding = 20;
+
+    const topH = top ? fontSize + 12 : 0;
+    const botH = bottom ? fontSize + 12 : 0;
+    const totalW = size + padding * 2;
+    const totalH = size + topH + botH + padding * 2;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = totalW;
+    canvas.height = totalH;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, totalW, totalH);
+
+    ctx.fillStyle = fg;
+    ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    if (top) ctx.fillText(top, totalW / 2, padding + topH / 2);
+    if (bottom) ctx.fillText(bottom, totalW / 2, padding + topH + size + botH / 2);
+
+    // Draw QR image
+    const blob = await getQRBlob('png');
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    await new Promise((resolve, reject) => {
+      img.onload = resolve; img.onerror = reject; img.src = url;
+    });
+    ctx.drawImage(img, padding, padding + topH, size, size);
+    URL.revokeObjectURL(url);
+
+    return new Promise(resolve => {
+      canvas.toBlob(resolve, format === 'jpeg' ? 'image/jpeg' : 'image/png', 0.95);
+    });
+  }
+
+  async function downloadQR(format) {
+    try {
+      const top = document.getElementById('cust-top').value;
+      const bottom = document.getElementById('cust-bottom').value;
+      const hasCaptions = top || bottom;
+      const fname = `qrcode-${Date.now()}`;
+
+      if (format === 'svg') {
+        // SVG export - inline captions
+        const svgBlob = await getQRBlob('svg');
+        const svgText = await svgBlob.text();
+        let finalSvg = svgText;
+        if (hasCaptions) {
+          finalSvg = await buildSVGWithCaptions(svgText);
+        }
+        triggerDownload(new Blob([finalSvg], { type: 'image/svg+xml' }), fname + '.svg');
+      } else if (format === 'png' || format === 'jpeg') {
+        const blob = hasCaptions
+          ? await composeWithCaptions(format)
+          : await getQRBlob(format);
+        triggerDownload(blob, fname + '.' + (format === 'jpeg' ? 'jpg' : 'png'));
+      } else if (format === 'pdf') {
+        const { jsPDF } = window.jspdf;
+        const blob = hasCaptions
+          ? await composeWithCaptions('png')
+          : await getQRBlob('png');
+        const dataURL = await blobToDataURL(blob);
+        const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
+        const img = new Image();
+        await new Promise((r,e) => { img.onload = r; img.onerror = e; img.src = dataURL; });
+        const pageW = 210, pageH = 297;
+        const maxSize = 120;
+        const ratio = img.width / img.height;
+        let w = maxSize, h = maxSize / ratio;
+        if (h > maxSize) { h = maxSize; w = maxSize * ratio; }
+        pdf.addImage(dataURL, 'PNG', (pageW - w) / 2, (pageH - h) / 2, w, h);
+        pdf.save(fname + '.pdf');
+      }
+      showToast('Downloaded ' + format.toUpperCase());
+    } catch (err) {
+      console.error(err);
+      showToast('Export failed');
+    }
+  }
+
+  async function buildSVGWithCaptions(svgText) {
+    const size = parseInt(document.getElementById('cust-size').value);
+    const top = document.getElementById('cust-top').value;
+    const bottom = document.getElementById('cust-bottom').value;
+    const fontSize = parseInt(document.getElementById('cust-cap-size').value);
+    const fg = document.getElementById('cust-fg').value;
+    const bg = document.getElementById('cust-bg').value;
+    const pad = 20;
+    const topH = top ? fontSize + 12 : 0;
+    const botH = bottom ? fontSize + 12 : 0;
+    const W = size + pad * 2;
+    const H = size + topH + botH + pad * 2;
+
+    // Strip outer <svg> tag from qr svg and re-wrap
+    const inner = svgText.replace(/<\?xml[^>]*\?>/, '').replace(/<svg[^>]*>/, '').replace(/<\/svg>/, '');
+    let out = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
+    out += `<rect width="${W}" height="${H}" fill="${bg}"/>`;
+    if (top) out += `<text x="${W/2}" y="${pad + topH/2}" font-family="sans-serif" font-size="${fontSize}" font-weight="600" fill="${fg}" text-anchor="middle" dominant-baseline="middle">${escapeXml(top)}</text>`;
+    out += `<g transform="translate(${pad},${pad + topH})">`;
+    // Need viewBox-aware: original svg may already have its own coordinate system. Embed as nested svg.
+    out += `<svg width="${size}" height="${size}">${inner}</svg>`;
+    out += `</g>`;
+    if (bottom) out += `<text x="${W/2}" y="${pad + topH + size + botH/2}" font-family="sans-serif" font-size="${fontSize}" font-weight="600" fill="${fg}" text-anchor="middle" dominant-baseline="middle">${escapeXml(bottom)}</text>`;
+    out += `</svg>`;
+    return out;
+  }
+
+  function escapeXml(s) {
+    return s.replace(/[<>&'"]/g, c => ({
+      '<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'
+    }[c]));
+  }
+
+  function blobToDataURL(blob) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    });
+  }
+
+  function triggerDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // ============ INIT ============
+  window.addEventListener('load', () => {
+    updateQR();
+  });
+</script>
+
+</body>
+</html>

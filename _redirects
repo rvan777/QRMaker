@@ -1,0 +1,6 @@
+/about       /index.html   200
+/privacy     /index.html   200
+/generator   /index.html   200
+
+# Catch-all: any unknown path falls back to the SPA
+/*           /index.html   200

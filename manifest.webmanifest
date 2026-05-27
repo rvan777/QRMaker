@@ -1,0 +1,21 @@
+{
+  "name": "TBH QR — Privacy-First QR Generator",
+  "short_name": "TBH QR",
+  "description": "Create custom QR codes entirely in your browser. No tracking, no storage.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "lang": "en",
+  "categories": ["utilities", "productivity"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
