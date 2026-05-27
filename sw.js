@@ -4,7 +4,7 @@
  * No analytics, no fetch interception of user data — this only caches static assets.
  */
 
-const CACHE_VERSION = 'TBHQR-v1';
+const CACHE_VERSION = 'tbhqr-v1';
 const APP_SHELL = [
   '/',
   '/index.html',
